@@ -1,0 +1,131 @@
+% original semantics from Samson-Jones 1995
+
+metavar x, y ::=                {{ com Variable names }}
+  {{ coq nat}} {{ coq-equality }}
+metavar C ::=                   {{ com Constructor names }}
+  {{ coq nat}} {{ coq-equality }}
+metavar cc ::=                  {{ com Cost centres }}
+  {{ coq nat}} {{ coq-equality }}
+indexvar a, i, j, k, n, m ::=   {{ com Indices to be used in lists }}
+  {{ coq nat}}
+
+grammar
+e :: 'e_' ::=
+  | \ x . e         ::  :: Lambda (+ bind x in e +)
+  | e x             ::  :: Application
+  | x               ::  :: Var
+  | let x1 = e1 .. xn = en in e ::  :: Let (+ bind x1 .. xn in e +)
+  | C v             ::  :: Constructor
+  | case e of { </ Cj vj -> ej // j IN 1 .. n /> } :: :: Case
+  | scc cc e        ::  :: SCC
+  | ( e )           :: S:: Paren {{ coq [[e]] }}
+  | e' [ e / x ]    :: M:: Tsub  {{ coq (esubst_e [[e]] [[x]] [[e']]) }}
+  | e' [ </ exi // i IN 1 .. n /> ] :: M:: Tsubs
+    {{ coq (esubsts_e [[ </ exi // i IN 1 .. n /> ]] [[e']]) }}
+
+prog :: 'prog' ::=
+  | x1 = e1 ... xn = en ::  :: Program
+
+z :: 'z_' ::= {{ com Values}}
+  | \ x . e         ::  :: Lambda
+  | C v             ::  :: Constructor
+
+v :: 'v_' ::=
+  | x1 .. xn        :: :: Vector
+  | x | a | n       :: :: Sub
+    {{ tex [[x]]_1\,..\,[[x]]_{[[a]]_[[n]]} }}
+
+ex :: 'ex_' ::=
+  | e / x :: :: singleton {{ coq ([[e]], [[x]]) }}
+
+G {{ tex \Gamma }}, D {{ tex \Delta }}, T {{ tex \Theta }} :: 'G_' ::= {{ coq list (var*e) }}
+  | empty :: :: em
+    {{ coq G_nil }}
+  | G , Gp :: :: vn
+
+Gp :: 'Gp_' ::=
+  | x  |- cc ->  e :: :: prod
+    {{ tex [[x]] \overset{[[cc]]}{\mapsto} [[e]] }}
+
+c :: 'c_' ::=
+  | A :: :: Application {{ tex \mathrm{A} }}
+  | K :: :: Case        {{ tex \mathrm{C} }}
+  | V :: :: Evaluate    {{ tex \mathrm{V} }}
+  | U :: :: Update      {{ tex \mathrm{U} }}
+  | H :: :: Allocate    {{ tex \mathrm{H} }}
+
+
+t {{ tex \theta }} :: 't_' ::=
+  | {} :: :: empty
+  | { cc |-> c } :: :: inject
+  | t <> t' :: :: append
+
+formula :: 'formula_' ::=
+  | judgement :: :: judgement
+  % all the random extra stuff we didn't want to gunk up the inductive
+  % types with...
+  | cc = SUB( cc1 , cc2 ) :: :: subcc
+    {{ tex [[cc]] = \mathrm{SUB}([[cc1]], [[cc2]]) }}
+  % technically only need one of these
+  | x |- cc -> z in G :: :: Gin
+    {{ tex x \overset{[[cc]]}{\mapsto} [[z]]\ [[in]]\ [[G]] }}
+  | G' = G [ </ Gpi // i IN 1 .. n /> ] :: :: Gsplit
+
+terminals :: 'terminals_' ::=
+  | \                   ::   :: lambda     {{ tex \lambda }}
+  | ->                  ::   :: arrow      {{ tex \rightarrow }}
+  | |->                 ::   :: mapsto     {{ tex \mapsto }}
+  | <>                  ::   :: append     {{ tex \mathbin{\mathaccent\cdot\cup} }}
+
+subrules
+  z <:: e
+
+substitutions
+  single e x :: esubst
+  multiple e x :: esubsts
+
+defns
+
+Jcost :: '' ::=
+
+defn
+    cc , G : e  >- t ->  D : z , cc' :: :: cost :: ''
+        {{tex [[cc]] [[,]] [[G]] [[:]] [[e]]\ \Downarrow_{[[t]]}\ [[D]] [[:]] [[z]] [[,]] [[cc']] }}
+        by
+
+    --------------------------------------- :: Lambda
+    cc, G : \y.e  >-{}->  G : \y.e, cc
+
+    --------------------------------------------------- :: Constructor
+    cc, G : C </ xi // i IN 1 .. n />  >-{}->  G : C </ xi // i IN 1 .. n />, cc
+
+    cc, G : e  >-t1->  D : \y.e', cc1
+    cc, D : e'[x/y]  >-t2->  T : z, cc2
+    ----------------------------------------------- :: Application
+    cc, G : e x  >- { cc |-> A } <> t1 <> t2 ->  T : z, cc2
+
+    cc'' = SUB(cc', cc)
+    x |- cc' -> z in G
+    ------------------------------ :: Var_whnf
+    cc, G : x  >- {cc |-> V} ->  G : z, cc''
+
+    cc', G : e  >-t->  D : z, cc''
+    G' = G [ x |-cc' -> e ]
+    D' = D [ x |-cc''-> z ]
+    --------------------------------------- :: Var_thunk
+    cc, G' : x  >- { cc |-> V } <> t <> { cc' |-> U } ->  D' : z, cc''
+
+    % XXX MISSING FRESHNESS CONSTRAINT
+    cc, G' : e [ </ yi / xi // i IN 1 .. n /> ]  >-t->  D : z, cc'
+    G' = G [ </ yi |- cc -> ei [ yi / xi ] // i IN 1 .. n /> ]
+    ------------------------------------------------------------ :: Let
+    cc, G : let </ xi = ei // i IN 1 .. n /> in e  >- { cc |-> H } <> t ->  D : z, cc'
+
+    cc, G : e  >-t1->  D : Ck x|a|k, cc'
+    cc, D : ek[xi/yki]  >-t2->  T : z, cc''
+    -------------------------------------------------------- :: Case
+    cc, G : case e of { </ Cj yj|a|j -> ej // j IN 1 .. n /> }  >- { cc |-> K } <> t1 <> t2 ->  T : z, cc''
+
+    cc', G : e  >-t->  D : z, cc''
+    -------------------------------------- :: SCC
+    cc, G : scc cc' e  >-t->  D : z, cc''

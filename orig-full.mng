@@ -1,0 +1,82 @@
+\documentclass{article}
+
+\usepackage{supertabular}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{xcolor}
+\usepackage{fullpage}
+\usepackage{multirow}
+
+\input{orig}
+
+% cribbed from Eisenberg's mng file
+\renewcommand{\ottusedrule}[1]{\[#1\]\\[1ex]}
+\setlength{\parindent}{0in}
+\setlength{\parskip}{1ex}
+
+\newcommand{\gram}[1]{\ottgrammartabular{#1\ottinterrule}}
+
+\title{Formalization of ``Time and space profiling for non-strict, higher-order functional languages''}
+\author{Edward Z. Yang \tt{<ezyang@cs.stanford.edu>}}
+
+\begin{document}
+
+\maketitle
+
+This document contains the cost semantics originally proposed by Patrick
+M. Sansom and Simon L. Peyton Jones in ``Time and space profiling for
+non-strict, higher-order functional languages.''  It is primarily of
+historical interest; I have not checked if the definitions are suitable
+for formal theorem proving, only transcribed them as faithfully as possible.
+
+\section{Metavariables}
+
+\ottmetavars{}
+
+\section{Grammar}
+
+A conventional lambda calculus, with the twist that function application
+can only be done with variables (allowing us to easily model heap
+allocation.)
+
+\gram{\otte}\\
+\gram{\ottprog}
+
+Values are $\lambda$-abstractions and saturated constructor applications.
+
+\gram{\ottz}
+
+To work around an Ott bug, the following sub-production is defined out of line:
+
+\gram{\ottv}
+
+\section{Contexts}
+
+Values on the heap are mappings from variable names to expressions (possibly
+unevaluated), with an associated cost-centre:
+
+\gram{\ottGp}
+
+Cost-attributions $\theta$ are mappings from cost centres to costs $c$.
+
+\gram{\ottt}\\
+\gram{\ottc}
+
+\section{Cost semantics}
+
+Big-step cost semantics map a current cost centre $cc$, a heap $\Gamma$ and an expression $e$ to
+a new heap $\Delta$, a value $z$  and a new current cost centre $cc'$.
+
+\ottdefnsJcost
+
+$\mathrm{SUB}$ is defined as:
+
+\begin{align*}
+\mathrm{SUB}(\mathrm{"SUB"}, cc) & = cc \\
+\mathrm{SUB}(cc_z, cc) & = cc_z \\
+\end{align*}
+
+XXX: something about freshness.
+
+\end{document}
